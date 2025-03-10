@@ -1,0 +1,270 @@
+Consolidated Markdown for PDF (documentation.md)
+markdown
+
+Collapse
+
+Unwrap
+
+Copy
+---
+title: Intellihack Scope 03 - AI Research QA System Documentation
+subtitle: A Comprehensive Pipeline for Data Processing, Model Fine-tuning, RAG Implementation, and Evaluation
+date: March 09, 2025
+author: xAI Team
+geometry: margin=1in
+---
+
+# Intellihack Scope 03 - AI Research QA System
+
+## Introduction
+
+This documentation outlines a pipeline for developing an AI system to answer technical questions on AI research topics, including DualPipe, DeepSeek-V3, Fire-Flyer File System (3FS), and Expert Parallelism Load Balancing (EPLB). The process involves data processing, QA pair generation, fine-tuning the Qwen 2.5-3B model, implementing a Retrieval-Augmented Generation (RAG) system, and evaluating performance.
+
+## Project Structure
+
+- **data/**
+  - `raw/`: Raw technical documentation (`.md`, `.txt`).
+  - `processed/`: Processed chunks (`chunks.csv`, `chunks.json`).
+  - `qa_pairs/`: QA pairs (`train.json`, `validation.json`).
+- **models/**
+  - Fine-tuned model (`qwen-3b-ai-research-qa`).
+  - `rag/`: RAG components (`faiss_index`, `rag_config.json`, `rag_template.txt`).
+  - `evaluation/`: Evaluation results and visualizations.
+- **notebooks/**
+  - `Setup_and_Data_Exploration.ipynb`
+  - `Data_Processing.ipynb`
+  - `QA_Pair_Generation.ipynb`
+  - `Model_Fine_Tuning.ipynb`
+  - `RAG_Implementation.ipynb`
+  - `Model_Evaluation.ipynb`
+
+## Prerequisites
+
+### Software Requirements
+- Python 3.9+ (tested with 3.13.1)
+- Jupyter Notebook/Lab
+- CUDA-enabled GPU (optional)
+
+### Python Dependencies
+```bash
+torch>=2.0.0
+transformers>=4.35.0
+peft>=0.5.0
+trl>=0.7.0
+datasets>=2.14.0
+langchain-community>=0.0.20
+faiss-cpu>=1.7.4  # or faiss-gpu
+sentence-transformers>=2.2.2
+pandas>=2.0.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+seaborn>=0.12.0
+nltk>=3.8.1
+tqdm>=4.66.0
+scikit-learn>=1.2.0
+evaluate>=0.4.0
+bitsandbytes>=0.41.0
+Hardware Recommendations
+16GB+ RAM
+NVIDIA GPU with 12GB+ VRAM
+50GB+ disk space
+Setup Instructions
+Clone Repository
+bash
+
+Collapse
+
+Unwrap
+
+Copy
+git clone <repository-url>
+cd intellihack-scope-03
+Install Dependencies
+bash
+
+Collapse
+
+Unwrap
+
+Copy
+pip install -r requirements.txt
+Prepare Data
+Place .md or .txt files in data/raw/ (e.g., dualpipe.md, deepseek-v3.txt).
+Run Notebooks
+Execute notebooks sequentially from Setup_and_Data_Exploration.ipynb to Model_Evaluation.ipynb.
+Setup and Data Exploration
+Objective: Set up the environment and explore the q3_dataset.
+
+Key Steps:
+
+Check CUDA availability.
+List files in data/raw/ and compute stats (size, word count).
+Code Example:
+
+python
+
+Collapse
+
+Unwrap
+
+Copy
+import torch
+from pathlib import Path
+data_dir = Path('../data/raw')
+files = list(data_dir.glob('**/*.md')) + list(data_dir.glob('**/*.txt'))
+print(f"Found {len(files)} files")
+Outputs: File statistics DataFrame (stats_df).
+
+Data Processing
+Objective: Chunk and clean technical documents.
+
+Strategies:
+
+Fixed-size chunks (500 words, 100-word overlap).
+Semantic chunking by headings.
+Hybrid approach based on chunk quality.
+Code Example:
+
+python
+
+Collapse
+
+Unwrap
+
+Copy
+def chunk_by_fixed_size(text, chunk_size=500, overlap=100):
+    sentences = sent_tokenize(text)
+    chunks = []
+    current_chunk = []
+    current_size = 0
+    for sentence in sentences:
+        if current_size + len(sentence.split()) > chunk_size and current_chunk:
+            chunks.append(' '.join(current_chunk))
+            current_chunk = current_chunk[-overlap:]
+            current_size = sum(len(s.split()) for s in current_chunk)
+        current_chunk.append(sentence)
+        current_size += len(sentence.split())
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+    return chunks
+Outputs: data/processed/chunks.csv, chunks.json.
+
+QA Pair Generation
+Objective: Generate QA pairs for fine-tuning.
+
+Strategies:
+
+Definition: "What is X?"
+Technical: "Explain the technical details of X."
+Application: "What are the benefits of X?"
+Description: "Describe key aspects of X."
+Code Example:
+
+python
+
+Collapse
+
+Unwrap
+
+Copy
+def generate_qa_pairs(chunk):
+    qa_pairs = []
+    key_terms = extract_key_terms(chunk['content'])
+    for term in key_terms[:3]:
+        qa_pairs.append({"question": f"What is {term}?", "answer": chunk['content'], "question_type": "definition"})
+    return qa_pairs
+Outputs: data/qa_pairs/train.json, validation.json.
+
+Model Fine-tuning
+Objective: Fine-tune Qwen 2.5-3B with QLoRA.
+
+Key Steps:
+
+Load QA pairs.
+Configure 4-bit quantization and LoRA.
+Train and save model.
+Code Example:
+
+python
+
+Collapse
+
+Unwrap
+
+Copy
+from transformers import AutoModelForCausalLM, BitsAndBytesConfig
+bnb_config = BitsAndBytesConfig(load_in_4bit=True)
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2.5-3B-Instruct", quantization_config=bnb_config)
+Outputs: models/qwen-3b-ai-research-qa.
+
+RAG Implementation
+Objective: Build a RAG system with document retrieval.
+
+Key Steps:
+
+Chunk documents and create FAISS index.
+Integrate fine-tuned model with retriever.
+Test with sample questions.
+Code Example:
+
+python
+
+Collapse
+
+Unwrap
+
+Copy
+from langchain_community.vectorstores import FAISS
+vector_store = FAISS.from_documents(chunks, embeddings)
+vector_store.save_local("../models/rag/faiss_index")
+Outputs: models/rag/faiss_index, rag_config.json, rag_template.txt.
+
+Model Evaluation
+Objective: Evaluate base, fine-tuned, and RAG models.
+
+Metrics:
+
+ROUGE (1, 2, L)
+BLEU
+Response length
+Error analysis
+Code Example:
+
+python
+
+Collapse
+
+Unwrap
+
+Copy
+rouge = evaluate.load('rouge')
+results = rouge.compute(predictions=[response], references=[reference])
+Outputs: models/evaluation/evaluation_results.csv, visualizations (e.g., rouge_scores.png), evaluation_summary.txt.
+
+Inputs and Outputs
+Inputs:
+
+data/raw/*.md, *.txt: Technical documents.
+Qwen/Qwen2.5-3B-Instruct: Pre-trained model.
+Outputs:
+
+Processed chunks, QA pairs, fine-tuned model, RAG system, evaluation results.
+Conclusions and Recommendations
+Findings:
+
+RAG typically outperforms in accuracy.
+Fine-tuning improves technical specificity.
+Recommendations:
+
+Deploy RAG system.
+Update knowledge base periodically.
+Appendix
+Sample Inputs
+dualpipe.md: "DualPipe enhances training efficiency..."
+deepseek-v3.txt: "DeepSeek-V3 uses Mixture-of-Experts..."
+Dependencies
+See requirements.txt in README.
+
+References
+Hugging Face: https://huggingface.co/Qwen/Qwen2.5-3B-Instruct
+LangChain: https://langchain-community.readthedocs.io/
